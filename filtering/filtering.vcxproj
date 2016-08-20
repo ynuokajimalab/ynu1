@@ -64,14 +64,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="filtering.c" />
+    <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="fir_filter.h" />
-    <ClInclude Include="Header.h" />
-    <ClInclude Include="sinc.h" />
+    <ClInclude Include="iir_filter.h" />
     <ClInclude Include="wave.h" />
-    <ClInclude Include="window_function.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
