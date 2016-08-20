@@ -67,8 +67,11 @@
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="iir_filter.h" />
+    <ClInclude Include="fft.h" />
+    <ClInclude Include="fir_filter.h" />
+    <ClInclude Include="sinc.h" />
     <ClInclude Include="wave.h" />
+    <ClInclude Include="window_function.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

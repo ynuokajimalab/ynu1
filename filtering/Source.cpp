@@ -5,13 +5,16 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include "wave.h"
-#include "iir_filter.h"
+#include "window_function.h"
+#include "sinc.h"
+#include "fir_filter.h"
+#include "fft.h"
 
 int main(void)
 {
 	MONO_PCM pcm0, pcm1;
-	int n, m, I, J, L, offset, frame, number_of_frame;
-	double fc, Q, a[3], b[3], *x, *y;
+	int n, m, k, J, L, N, offset, frame, number_of_frame;
+	double fe, delta, *b, *w, *b_real, *b_imag, *x_real, *x_imag, *y_real, *y_imag;
 
 	mono_wave_read(&pcm0, "sample04.wav"); /* WAVEファイルからモノラルの音データを入力する */
 
@@ -20,74 +23,92 @@ int main(void)
 	pcm1.length = pcm0.length; /* 音データの長さ */
 	pcm1.s = (double*)calloc(pcm1.length, sizeof(double)); /* メモリの確保 */
 
-	fc = 1000.0 / pcm0.fs; /* 遮断周波数 */
-	Q = 1.0 / sqrt(2.0); /* クオリティファクタ */
-	I = 2; /* 遅延器の数 */
-	J = 2; /* 遅延器の数 */
+	fe = 1000.0 / pcm0.fs; /* エッジ周波数 */
+	delta = 1000.0 / pcm0.fs; /* 遷移帯域幅 */
 
-	IIR_LPF(fc, Q, a, b); /* IIRフィルタの設計 */
+	J = (int)(3.1 / delta + 0.5) - 1; /* 遅延器の数 */
+	if (J % 2 == 1)
+	{
+		J++; /* J+1が奇数になるように調整する */
+	}
+
+	b = (double*) calloc((J + 1), sizeof(double)); /* メモリの確保 */
+	w = (double*)calloc((J + 1), sizeof(double)); /* メモリの確保 */
+
+	Hanning_window(w, (J + 1)); /* ハニング窓 */
+
+	FIR_LPF(fe, J, b, w); /* FIRフィルタの設計 */
 
 	L = 256; /* フレームの長さ */
+	N = 512; /* DFTのサイズ */
 
 	number_of_frame = pcm0.length / L; /* フレームの数 */
 
-	x = (double*)calloc((L + J), sizeof(double)); /* メモリの確保 */
-	y = (double*)calloc((L + I), sizeof(double)); /* メモリの確保 */
+	b_real = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
+	b_imag = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
+	x_real = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
+	x_imag = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
+	y_real = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
+	y_imag = (double*)calloc(N, sizeof(double)); /* メモリの確保 */
 
 	for (frame = 0; frame < number_of_frame; frame++)
 	{
 		offset = L * frame;
 
-		/* 直前のフレームの後半のJサンプルをつけ加える */
-		for (n = 0; n < L + J; n++)
+		/* x(n)のFFT */
+		for (n = 0; n < N; n++)
 		{
-			if (offset - J + n < 0)
-			{
-				x[n] = 0.0;
-			}
-			else
-			{
-				x[n] = pcm0.s[offset - J + n];
-			}
+			x_real[n] = 0.0;
+			x_imag[n] = 0.0;
 		}
+		for (n = 0; n < L; n++)
+		{
+			x_real[n] = pcm0.s[offset + n];
+		}
+		FFT(x_real, x_imag, N);
 
-		/* 直前のフィルタリング結果の後半のIサンプルをつけ加える */
-		for (n = 0; n < L + I; n++)
+		/* b(m)のFFT */
+		for (m = 0; m < N; m++)
 		{
-			if (offset - I + n < 0)
-			{
-				y[n] = 0.0;
-			}
-			else
-			{
-				y[n] = pcm1.s[offset - I + n];
-			}
+			b_real[m] = 0.0;
+			b_imag[m] = 0.0;
 		}
+		for (m = 0; m <= J; m++)
+		{
+			b_real[m] = b[m];
+		}
+		FFT(b_real, b_imag, N);
 
 		/* フィルタリング */
-		for (n = 0; n < L; n++)
+		for (k = 0; k < N; k++)
 		{
-			for (m = 0; m <= J; m++)
-			{
-				y[I + n] += b[m] * x[J + n - m];
-			}
-			for (m = 1; m <= I; m++)
-			{
-				y[I + n] += -a[m] * y[I + n - m];
-			}
+			y_real[k] = x_real[k] * b_real[k] - x_imag[k] * b_imag[k];
+			y_imag[k] = x_imag[k] * b_real[k] + x_real[k] * b_imag[k];
 		}
+		IFFT(y_real, y_imag, N);
 
 		/* フィルタリング結果の連結 */
-		for (n = 0; n < L; n++)
+		for (n = 0; n < L * 2; n++)
 		{
-			pcm1.s[offset + n] = y[I + n];
+			if (offset + n < pcm1.length)
+			{
+				pcm1.s[offset + n] += y_real[n];
+			}
 		}
 	}
 
-	mono_wave_write(&pcm1, "ex6_4.wav"); /* WAVEファイルにモノラルの音データを出力する */
+	mono_wave_write(&pcm1, "ex6_5.wav"); /* WAVEファイルにモノラルの音データを出力する */
 
 	free(pcm0.s); /* メモリの解放 */
 	free(pcm1.s); /* メモリの解放 */
+	free(b); /* メモリの解放 */
+	free(w); /* メモリの解放 */
+	free(b_real); /* メモリの解放 */
+	free(b_imag); /* メモリの解放 */
+	free(x_real); /* メモリの解放 */
+	free(x_imag); /* メモリの解放 */
+	free(y_real); /* メモリの解放 */
+	free(y_imag); /* メモリの解放 */
 
 	return 0;
 }
