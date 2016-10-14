@@ -110,5 +110,7 @@ int main(void)
 	free(y_real); /* ƒƒ‚ƒŠ‚Ì‰ğ•ú */
 	free(y_imag); /* ƒƒ‚ƒŠ‚Ì‰ğ•ú */
 
+	printf("finish");
+
 	return 0;
 }
