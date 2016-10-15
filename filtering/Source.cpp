@@ -9,12 +9,13 @@
 #include "sinc.h"
 #include "fir_filter.h"
 #include "fft.h"
+#include "countSound.h"
 
 int main(void)
 {
 	MONO_PCM pcm0, pcm1;
-	int n, m, k, J, L, N, offset, frame, number_of_frame;
-	double fe, delta, *b, *w, *b_real, *b_imag, *x_real, *x_imag, *y_real, *y_imag;
+	int n, m, k, J, L, N, offset, frame, number_of_frame,countsound;
+	double fe, delta, threshold, *b, *w, *b_real, *b_imag, *x_real, *x_imag, *y_real, *y_imag;
 
 	mono_wave_read(&pcm0, "005_160615_0941V0.wav"); /* WAVEファイルからモノラルの音データを入力する */
 
@@ -41,6 +42,9 @@ int main(void)
 
 	L = 256; /* フレームの長さ */
 	N = 512; /* DFTのサイズ */
+
+	countsound = 0; /* 音が閾値を超えた回数*/
+	threshold = 100.0;/* 閾値*/
 
 	number_of_frame = pcm0.length / L; /* フレームの数 */
 
@@ -85,6 +89,9 @@ int main(void)
 			y_real[k] = x_real[k] * b_real[k] - x_imag[k] * b_imag[k];
 			y_imag[k] = x_imag[k] * b_real[k] + x_real[k] * b_imag[k];
 		}
+
+		countsound += judgeSounnd(y_real,N,threshold);
+		
 		IFFT(y_real, y_imag, N);
 
 		/* フィルタリング結果の連結 */
@@ -110,6 +117,7 @@ int main(void)
 	free(y_real); /* メモリの解放 */
 	free(y_imag); /* メモリの解放 */
 
+	printf("countsound =%d\n",countsound);
 	printf("finish");
 
 	return 0;
