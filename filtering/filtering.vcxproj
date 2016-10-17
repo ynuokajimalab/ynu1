@@ -67,6 +67,7 @@
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="countSound.h" />
     <ClInclude Include="fft.h" />
     <ClInclude Include="fir_filter.h" />
     <ClInclude Include="sinc.h" />
